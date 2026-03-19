@@ -63,6 +63,18 @@ const emailTools = [
           type: "boolean",
           description: "Filter to only unread emails"
         },
+        receivedDateTimeBefore: {
+          type: "string",
+          description: "ISO 8601 timestamp — return only emails received before this time (e.g. '2026-03-19T04:00:00.000Z')"
+        },
+        receivedDateTimeAfter: {
+          type: "string",
+          description: "ISO 8601 timestamp — return only emails received after this time"
+        },
+        lastModifiedAfter: {
+          type: "string",
+          description: "ISO 8601 timestamp — return only emails last modified after this time (useful for filed-count queries)"
+        },
         count: {
           type: "number",
           description: "Number of results to return (default: 10, max: 50)"

@@ -20,7 +20,10 @@ async function handleSearchEmails(args) {
   const subject = args.subject || '';
   const hasAttachments = args.hasAttachments;
   const unreadOnly = args.unreadOnly;
-  
+  const receivedDateTimeBefore = args.receivedDateTimeBefore || null;
+  const receivedDateTimeAfter  = args.receivedDateTimeAfter  || null;
+  const lastModifiedAfter      = args.lastModifiedAfter      || null;
+
   try {
     // Get access token
     const accessToken = await ensureAuthenticated();
@@ -31,10 +34,10 @@ async function handleSearchEmails(args) {
     
     // Execute progressive search with pagination
     const response = await progressiveSearch(
-      endpoint, 
-      accessToken, 
+      endpoint,
+      accessToken,
       { query, from, to, subject },
-      { hasAttachments, unreadOnly },
+      { hasAttachments, unreadOnly, receivedDateTimeBefore, receivedDateTimeAfter, lastModifiedAfter },
       requestedCount
     );
     
@@ -72,13 +75,42 @@ async function handleSearchEmails(args) {
 async function progressiveSearch(endpoint, accessToken, searchTerms, filterTerms, maxCount) {
   // Track search strategies attempted
   const searchAttempts = [];
-  
+
+  const hasTextTerms = searchTerms.query || searchTerms.from || searchTerms.to || searchTerms.subject;
+  const hasDateOrBooleanFilters = filterTerms.receivedDateTimeBefore ||
+    filterTerms.receivedDateTimeAfter ||
+    filterTerms.lastModifiedAfter ||
+    filterTerms.hasAttachments === true ||
+    filterTerms.unreadOnly === true;
+
+  // When only date/boolean filters are present (no text terms), skip straight to filter-only path
+  if (!hasTextTerms && hasDateOrBooleanFilters) {
+    try {
+      console.error("Attempting filter-only search (date/boolean filters, no text terms)");
+      searchAttempts.push("filter-only");
+
+      const filterOnlyParams = {
+        $top: Math.min(50, maxCount),
+        $select: config.EMAIL_SELECT_FIELDS,
+        $orderby: 'receivedDateTime desc'
+      };
+      addBooleanFilters(filterOnlyParams, filterTerms);
+
+      const response = await callGraphAPIPaginated(accessToken, 'GET', endpoint, filterOnlyParams, maxCount);
+      console.error(`Filter-only search found ${response.value?.length || 0} results`);
+      return response;
+    } catch (error) {
+      console.error(`Filter-only search failed: ${error.message}`);
+      return { value: [] };
+    }
+  }
+
   // 1. Try combined search (most specific)
   try {
     const params = buildSearchParams(searchTerms, filterTerms, Math.min(50, maxCount));
     console.error("Attempting combined search with params:", params);
     searchAttempts.push("combined-search");
-    
+
     const response = await callGraphAPIPaginated(accessToken, 'GET', endpoint, params, maxCount);
     if (response.value && response.value.length > 0) {
       console.error(`Combined search successful: found ${response.value.length} results`);
@@ -132,8 +164,9 @@ async function progressiveSearch(endpoint, accessToken, searchTerms, filterTerms
     }
   }
   
-  // 3. Try with only boolean filters
-  if (filterTerms.hasAttachments === true || filterTerms.unreadOnly === true) {
+  // 3. Try with only boolean filters (including date filters)
+  if (filterTerms.hasAttachments === true || filterTerms.unreadOnly === true ||
+      filterTerms.receivedDateTimeBefore || filterTerms.receivedDateTimeAfter || filterTerms.lastModifiedAfter) {
     try {
       console.error("Attempting search with only boolean filters");
       searchAttempts.push("boolean-filters-only");
@@ -155,6 +188,12 @@ async function progressiveSearch(endpoint, accessToken, searchTerms, filterTerms
     }
   }
   
+  // Guard: don't return recent emails if caller specified any filters
+  if (hasDateOrBooleanFilters) {
+    console.error("Returning empty — filter criteria specified but no results found");
+    return { value: [] };
+  }
+
   // 4. Final fallback: just get recent emails with pagination
   console.error("All search strategies failed, falling back to recent emails");
   searchAttempts.push("recent-emails");
@@ -235,16 +274,23 @@ function buildSearchParams(searchTerms, filterTerms, count) {
  */
 function addBooleanFilters(params, filterTerms) {
   const filterConditions = [];
-  
+
   if (filterTerms.hasAttachments === true) {
     filterConditions.push('hasAttachments eq true');
   }
-  
   if (filterTerms.unreadOnly === true) {
     filterConditions.push('isRead eq false');
   }
-  
-  // Add $filter parameter if we have any filter conditions
+  if (filterTerms.receivedDateTimeBefore) {
+    filterConditions.push(`receivedDateTime lt ${filterTerms.receivedDateTimeBefore}`);
+  }
+  if (filterTerms.receivedDateTimeAfter) {
+    filterConditions.push(`receivedDateTime gt ${filterTerms.receivedDateTimeAfter}`);
+  }
+  if (filterTerms.lastModifiedAfter) {
+    filterConditions.push(`lastModifiedDateTime ge ${filterTerms.lastModifiedAfter}`);
+  }
+
   if (filterConditions.length > 0) {
     params.$filter = filterConditions.join(' and ');
   }
