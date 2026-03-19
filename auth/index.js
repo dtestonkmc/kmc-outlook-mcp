@@ -17,7 +17,7 @@ async function ensureAuthenticated(forceNew = false) {
   }
   
   // Check for existing token
-  const accessToken = tokenManager.getAccessToken();
+  const accessToken = await tokenManager.getAccessToken();
   if (!accessToken) {
     throw new Error('Authentication required');
   }

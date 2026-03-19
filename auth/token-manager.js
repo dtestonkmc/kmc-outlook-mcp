@@ -2,6 +2,8 @@
  * Token management for Microsoft Graph API authentication
  */
 const fs = require('fs');
+const https = require('https');
+const querystring = require('querystring');
 const config = require('../config');
 
 // Global variable to store tokens
@@ -97,16 +99,126 @@ function saveTokenCache(tokens) {
 }
 
 /**
- * Gets the current Graph API access token, loading from cache if necessary
- * @returns {string|null} - The access token or null if not available
+ * Attempts to refresh the access token using the stored refresh_token.
+ * @returns {Promise<string|null>} - New access token or null if refresh fails
  */
-function getAccessToken() {
-  if (cachedTokens && cachedTokens.access_token) {
-    return cachedTokens.access_token;
+async function refreshAccessToken() {
+  // Read raw token file — bypass expiry check in loadTokenCache so we can still
+  // get the refresh_token even when the access_token has already expired.
+  let tokens = null;
+  try {
+    const tokenPath = config.AUTH_CONFIG.tokenStorePath;
+    if (fs.existsSync(tokenPath)) {
+      tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+    }
+  } catch (e) {
+    console.error('[token-manager] Failed to read token file for refresh:', e);
   }
 
-  const tokens = loadTokenCache();
-  return tokens ? tokens.access_token : null;
+  if (!tokens || !tokens.refresh_token) {
+    console.error('[token-manager] No refresh token available');
+    return null;
+  }
+
+  const tenantId = process.env.OUTLOOK_TENANT_ID || 'common';
+  const clientId = process.env.OUTLOOK_CLIENT_ID || '';
+  const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || '';
+
+  const body = querystring.stringify({
+    grant_type: 'refresh_token',
+    refresh_token: tokens.refresh_token,
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: 'https://graph.microsoft.com/.default offline_access'
+  });
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'login.microsoftonline.com',
+      path: `/${tenantId}/oauth2/v2.0/token`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          console.error(`[token-manager] Token refresh failed: ${res.statusCode} ${data}`);
+          resolve(null);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(data);
+          const newTokens = {
+            ...tokens,
+            access_token: parsed.access_token,
+            refresh_token: parsed.refresh_token || tokens.refresh_token,
+            expires_at: Date.now() + ((parsed.expires_in || 3600) * 1000)
+          };
+          saveTokenCache(newTokens);
+          console.error('[token-manager] Token refreshed successfully');
+          resolve(parsed.access_token);
+        } catch (e) {
+          console.error('[token-manager] Failed to parse refresh response:', e);
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      console.error('[token-manager] Refresh request error:', e);
+      resolve(null);
+    });
+
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Gets the current Graph API access token, loading from cache if necessary.
+ * Automatically refreshes if expired or expiring within 5 minutes.
+ * @returns {Promise<string|null>} - The access token or null if not available
+ */
+async function getAccessToken() {
+  const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+  if (cachedTokens && cachedTokens.access_token) {
+    const expiresAt = cachedTokens.expires_at || 0;
+    if (Date.now() < expiresAt - REFRESH_THRESHOLD_MS) {
+      return cachedTokens.access_token;
+    }
+  }
+
+  // Read raw token file to check expiry (loadTokenCache returns null on expiry,
+  // so we read directly to decide whether to refresh or just return the token).
+  let rawTokens = null;
+  try {
+    const tokenPath = config.AUTH_CONFIG.tokenStorePath;
+    if (fs.existsSync(tokenPath)) {
+      rawTokens = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+    }
+  } catch (e) {
+    // ignore parse errors
+  }
+
+  if (!rawTokens || !rawTokens.access_token) return null;
+
+  const expiresAt = rawTokens.expires_at || 0;
+  if (Date.now() < expiresAt - REFRESH_THRESHOLD_MS) {
+    // Valid and not expiring soon — update cache and return
+    cachedTokens = rawTokens;
+    return rawTokens.access_token;
+  }
+
+  // Token expired or expiring soon — try refresh
+  console.error('[token-manager] Token expired or expiring soon, attempting refresh');
+  return await refreshAccessToken();
 }
 
 /**
@@ -181,8 +293,9 @@ function createTestTokens() {
 module.exports = {
   loadTokenCache,
   saveTokenCache,
-  getAccessToken,
+  getAccessToken,      // now async
   getFlowAccessToken,
   saveFlowTokens,
-  createTestTokens
+  createTestTokens,
+  refreshAccessToken   // new
 };
