@@ -8,6 +8,7 @@ const config = require('../config');
 
 // Global variable to store tokens
 let cachedTokens = null;
+let refreshInFlight = null;
 
 /**
  * Loads authentication tokens from the token file
@@ -218,7 +219,12 @@ async function getAccessToken() {
 
   // Token expired or expiring soon — try refresh
   console.error('[token-manager] Token expired or expiring soon, attempting refresh');
-  return await refreshAccessToken();
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return await refreshInFlight;
 }
 
 /**
@@ -290,6 +296,12 @@ function createTestTokens() {
   return testTokens;
 }
 
+/** FOR TESTING ONLY — resets in-memory token cache */
+function _resetCacheForTesting() {
+  cachedTokens = null;
+  refreshInFlight = null;
+}
+
 module.exports = {
   loadTokenCache,
   saveTokenCache,
@@ -297,5 +309,6 @@ module.exports = {
   getFlowAccessToken,
   saveFlowTokens,
   createTestTokens,
-  refreshAccessToken   // new
+  refreshAccessToken,  // new
+  _resetCacheForTesting   // for tests only
 };

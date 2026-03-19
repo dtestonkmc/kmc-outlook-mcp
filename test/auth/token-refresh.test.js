@@ -3,14 +3,22 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Isolate token file to temp dir for tests
-process.env.HOME = os.tmpdir();
+const TOKEN_PATH = require('path').join(os.tmpdir(), '.outlook-mcp-tokens.json');
 
-const { loadTokenCache, saveTokenCache, getAccessToken, refreshAccessToken } = require('../../auth/token-manager');
+jest.mock('../../config', () => ({
+  AUTH_CONFIG: {
+    clientId: '',
+    clientSecret: '',
+    tenantId: 'common',
+    tokenStorePath: require('path').join(require('os').tmpdir(), '.outlook-mcp-tokens.json'),
+    authServerUrl: 'http://localhost:3333'
+  }
+}));
 
-const TOKEN_PATH = path.join(os.tmpdir(), '.outlook-mcp-tokens.json');
+const { loadTokenCache, saveTokenCache, getAccessToken, refreshAccessToken, _resetCacheForTesting } = require('../../auth/token-manager');
 
 beforeEach(() => {
+  _resetCacheForTesting();
   if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
 });
 
