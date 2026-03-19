@@ -7,6 +7,7 @@ const handleReadEmail = require('./read');
 const handleSendEmail = require('./send');
 const handleDraftEmail = require('./draft');
 const handleMarkAsRead = require('./mark-as-read');
+const { moveToTrashTool } = require('./move-to-trash');
 
 // Email tool definitions
 const emailTools = [
@@ -201,8 +202,11 @@ const emailTools = [
       required: ["id"]
     },
     handler: handleMarkAsRead
-  }
+  },
+  moveToTrashTool
 ];
+
+const { handleMoveToTrash } = require('./move-to-trash');
 
 module.exports = {
   emailTools,
@@ -211,5 +215,6 @@ module.exports = {
   handleReadEmail,
   handleSendEmail,
   handleDraftEmail,
-  handleMarkAsRead
+  handleMarkAsRead,
+  handleMoveToTrash
 };
