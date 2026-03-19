@@ -78,6 +78,17 @@ test('does not fall back to recent emails when date filter is specified but retu
   expect(result.content[0].text).toContain('No emails found');
 });
 
+test('uses $filter path (not $search) when date filter is combined with text search', async () => {
+  const cutoff = '2026-03-19T04:00:00.000Z';
+  await handleSearchEmails({ receivedDateTimeBefore: cutoff, from: 'test@example.com', count: 10 });
+
+  const [, , , params] = callGraphAPIPaginated.mock.calls[0];
+  // Should use $filter, not $search
+  expect(params.$search).toBeUndefined();
+  expect(params.$filter).toContain(`receivedDateTime lt ${cutoff}`);
+  expect(params.$filter).toContain("from/emailAddress/address eq 'test@example.com'");
+});
+
 test('does not mix in recent emails when a paginated date-filtered query returns empty on later pages', async () => {
   const cutoff = '2026-03-01T00:00:00.000Z';
   callGraphAPIPaginated

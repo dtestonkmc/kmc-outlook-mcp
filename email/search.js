@@ -230,7 +230,34 @@ function buildSearchParams(searchTerms, filterTerms, count) {
     $top: count,
     $select: config.EMAIL_SELECT_FIELDS
   };
-  
+
+  const hasDateFilters = filterTerms.receivedDateTimeBefore ||
+    filterTerms.receivedDateTimeAfter ||
+    filterTerms.lastModifiedAfter;
+
+  if (hasDateFilters) {
+    // When date filters are present, use $filter path only (can't mix $search and $filter)
+    // Convert compatible text terms to $filter conditions
+    params.$orderby = 'receivedDateTime desc';
+    addBooleanFilters(params, filterTerms);
+    // Add text-filter-compatible conditions to the existing $filter
+    const textFilterConditions = [];
+    if (searchTerms.from) {
+      textFilterConditions.push(`from/emailAddress/address eq '${searchTerms.from}'`);
+    }
+    if (searchTerms.subject) {
+      textFilterConditions.push(`contains(subject,'${searchTerms.subject}')`);
+    }
+    // Note: general 'query' cannot be expressed as $filter, silently omitted when date filters present
+    if (textFilterConditions.length > 0) {
+      params.$filter = params.$filter
+        ? `${params.$filter} and ${textFilterConditions.join(' and ')}`
+        : textFilterConditions.join(' and ');
+    }
+    return params;
+  }
+
+  // No date filters — use existing KQL $search approach
   // Handle search terms
   const kqlTerms = [];
   
