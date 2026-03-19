@@ -20,7 +20,6 @@ test('calls Graph API move endpoint with deleteditems destination', async () => 
     'test-token',
     'POST',
     '/me/messages/abc123/move',
-    null,
     { destinationId: 'deleteditems' }
   );
   expect(result.content[0].text).toContain('moved to Deleted Items');

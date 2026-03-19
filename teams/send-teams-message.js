@@ -15,7 +15,7 @@ async function handleSendTeamsMessage(args) {
 
   try {
     const accessToken = await ensureAuthenticated();
-    await callGraphAPI(accessToken, 'POST', `/me/chats/${chatId}/messages`, null, {
+    await callGraphAPI(accessToken, 'POST', `/me/chats/${chatId}/messages`, {
       body: { content: message, contentType: 'text' }
     });
     return { success: true };

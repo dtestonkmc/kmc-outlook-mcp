@@ -23,7 +23,6 @@ test('sends message to configured self-chat', async () => {
     'test-token',
     'POST',
     '/me/chats/test-chat-id/messages',
-    null,
     { body: { content: 'Hello Teams', contentType: 'text' } }
   );
   expect(result.success).toBe(true);

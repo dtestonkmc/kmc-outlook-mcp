@@ -27,7 +27,6 @@ async function handleMoveToTrash(args) {
       accessToken,
       'POST',
       `/me/messages/${messageId}/move`,
-      null,
       { destinationId: 'deleteditems' }
     );
     return {
