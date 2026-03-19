@@ -8,7 +8,9 @@
     "auth-server": "node outlook-auth-server.js",
     "test-mode": "USE_TEST_MODE=true node index.js",
     "inspect": "npx @modelcontextprotocol/inspector node index.js",
-    "test": "jest --testPathPattern=test/"
+    "test": "jest --testPathPattern=test/",
+    "get-chat-id": "node get-self-chat-id.js",
+    "setup-folders": "node setup-folders.js"
   },
   "keywords": [
     "claude",
