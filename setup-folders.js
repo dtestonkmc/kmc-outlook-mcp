@@ -13,10 +13,10 @@ const { callGraphAPI } = require('./utils/graph-api');
 async function createFolder(token, parentFolderId, folderName) {
   try {
     const endpoint = parentFolderId
-      ? `/me/mailFolders/${parentFolderId}/childFolders`
-      : '/me/mailFolders';
+      ? `me/mailFolders/${parentFolderId}/childFolders`
+      : 'me/mailFolders';
 
-    const result = await callGraphAPI(token, 'POST', endpoint, { displayName: folderName }, null);
+    const result = await callGraphAPI(token, 'POST', endpoint, { displayName: folderName });
     console.log(`  Created: ${folderName}`);
     return result.id;
   } catch (err) {
@@ -24,9 +24,9 @@ async function createFolder(token, parentFolderId, folderName) {
       console.log(`  Exists:  ${folderName}`);
       // Fetch existing folder ID
       const existingEndpoint = parentFolderId
-        ? `/me/mailFolders/${parentFolderId}/childFolders?$filter=displayName eq '${folderName}'`
-        : `/me/mailFolders?$filter=displayName eq '${folderName}'`;
-      const res = await callGraphAPI(token, 'GET', existingEndpoint);
+        ? `me/mailFolders/${parentFolderId}/childFolders`
+        : 'me/mailFolders';
+      const res = await callGraphAPI(token, 'GET', existingEndpoint, null, { $filter: `displayName eq '${folderName}'` });
       return res.value[0]?.id || null;
     }
     throw err;
