@@ -26,7 +26,7 @@ async function handleMoveToTrash(args) {
     await callGraphAPI(
       accessToken,
       'POST',
-      `/me/messages/${messageId}/move`,
+      `me/messages/${messageId}/move`,
       { destinationId: 'deleteditems' }
     );
     return {
