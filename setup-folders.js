@@ -10,6 +10,40 @@ const path = require('path');
 const { getAccessToken } = require('./auth/token-manager');
 const { callGraphAPI } = require('./utils/graph-api');
 
+// Well-known folder names that Graph API exposes as top-level aliases
+const WELL_KNOWN_FOLDERS = {
+  'inbox': 'inbox',
+  'drafts': 'drafts',
+  'sentitems': 'sentitems',
+  'sent items': 'sentitems',
+  'deleteditems': 'deleteditems',
+  'deleted items': 'deleteditems',
+  'junkemail': 'junkemail',
+  'junk email': 'junkemail',
+  'archive': 'archive',
+};
+
+async function resolveWellKnownFolder(token, folderName) {
+  const alias = WELL_KNOWN_FOLDERS[folderName.toLowerCase()];
+  if (!alias) return null;
+
+  try {
+    const result = await callGraphAPI(token, 'GET', `me/mailFolders/${alias}`);
+    console.log(`  Resolved well-known folder: ${folderName} (${result.id})`);
+    return result.id;
+  } catch {
+    return null;
+  }
+}
+
+async function findExistingFolder(token, parentFolderId, folderName) {
+  const endpoint = parentFolderId
+    ? `me/mailFolders/${parentFolderId}/childFolders`
+    : 'me/mailFolders';
+  const res = await callGraphAPI(token, 'GET', endpoint, null, { $filter: `displayName eq '${folderName}'` });
+  return res.value[0]?.id || null;
+}
+
 async function createFolder(token, parentFolderId, folderName) {
   try {
     const endpoint = parentFolderId
@@ -22,12 +56,7 @@ async function createFolder(token, parentFolderId, folderName) {
   } catch (err) {
     if (err.message && err.message.includes('409')) {
       console.log(`  Exists:  ${folderName}`);
-      // Fetch existing folder ID
-      const existingEndpoint = parentFolderId
-        ? `me/mailFolders/${parentFolderId}/childFolders`
-        : 'me/mailFolders';
-      const res = await callGraphAPI(token, 'GET', existingEndpoint, null, { $filter: `displayName eq '${folderName}'` });
-      return res.value[0]?.id || null;
+      return await findExistingFolder(token, parentFolderId, folderName);
     }
     throw err;
   }
@@ -54,7 +83,7 @@ async function main() {
   // Build unique folder paths from config
   const folderPaths = [...new Set(config.map(entry => entry.folder))];
 
-  console.log(`\nCreating ${folderPaths.length} folders...\n`);
+  console.log(`\nCreating ${folderPaths.length} folder paths...\n`);
 
   const folderIdCache = {};
 
@@ -67,6 +96,15 @@ async function main() {
     for (const part of parts) {
       builtPath = builtPath ? `${builtPath}/${part}` : part;
       if (!folderIdCache[builtPath]) {
+        // First segment might be a well-known folder (Inbox, Drafts, etc.)
+        if (!parentId) {
+          const wellKnownId = await resolveWellKnownFolder(token, part);
+          if (wellKnownId) {
+            folderIdCache[builtPath] = wellKnownId;
+            parentId = wellKnownId;
+            continue;
+          }
+        }
         folderIdCache[builtPath] = await createFolder(token, parentId, part);
       }
       parentId = folderIdCache[builtPath];
