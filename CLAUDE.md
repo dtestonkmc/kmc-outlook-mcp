@@ -64,8 +64,7 @@ Each module exports tools and handlers:
 ## Configuration
 
 ### Environment Variables
-- **For .env file**: Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET`
-- **For Claude Desktop config**: Use `OUTLOOK_CLIENT_ID` and `OUTLOOK_CLIENT_SECRET`
+- Use `OUTLOOK_CLIENT_ID`, `OUTLOOK_CLIENT_SECRET`, and `OUTLOOK_TENANT_ID` everywhere (`.env`, Claude Desktop config, etc.)
 - **Important**: Always use the client secret VALUE from Azure, not the Secret ID
 
 ### Config Constants

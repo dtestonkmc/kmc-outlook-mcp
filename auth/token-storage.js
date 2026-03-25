@@ -5,15 +5,15 @@ const querystring = require('querystring');
 
 class TokenStorage {
   constructor(config) {
-    const tenantId = process.env.MS_TENANT_ID || 'common';
-    const authorityHost = (process.env.MS_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, '');
+    const tenantId = process.env.OUTLOOK_TENANT_ID || 'common';
+    const authorityHost = (process.env.OUTLOOK_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, '');
 
     this.config = {
       tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, '.outlook-mcp-tokens.json'),
-      clientId: process.env.MS_CLIENT_ID,
-      clientSecret: process.env.MS_CLIENT_SECRET,
-      redirectUri: process.env.MS_REDIRECT_URI || 'http://localhost:3333/auth/callback',
-      scopes: (process.env.MS_SCOPES || 'offline_access User.Read Mail.Read').split(' '),
+      clientId: process.env.OUTLOOK_CLIENT_ID,
+      clientSecret: process.env.OUTLOOK_CLIENT_SECRET,
+      redirectUri: process.env.OUTLOOK_REDIRECT_URI || 'http://localhost:3333/auth/callback',
+      scopes: (process.env.OUTLOOK_SCOPES || 'offline_access User.Read Mail.Read').split(' '),
       tenantId,
       tokenEndpoint: process.env.MS_TOKEN_ENDPOINT || `${authorityHost}/${tenantId}/oauth2/v2.0/token`,
       refreshTokenBuffer: 5 * 60 * 1000, // 5 minutes buffer for token refresh
@@ -24,7 +24,7 @@ class TokenStorage {
     this._refreshPromise = null;
 
     if (!this.config.clientId || !this.config.clientSecret) {
-      console.warn("TokenStorage: MS_CLIENT_ID or MS_CLIENT_SECRET is not configured. Token operations might fail.");
+      console.warn("TokenStorage: OUTLOOK_CLIENT_ID or OUTLOOK_CLIENT_SECRET is not configured. Token operations might fail.");
     }
   }
 

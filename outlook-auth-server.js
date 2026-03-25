@@ -14,10 +14,10 @@ console.log('Starting Outlook Authentication Server');
 
 // Authentication configuration
 const AUTH_CONFIG = {
-  clientId: process.env.MS_CLIENT_ID || '', // Set your client ID as an environment variable
-  clientSecret: process.env.MS_CLIENT_SECRET || '', // Set your client secret as an environment variable
-  tenantId: process.env.MS_TENANT_ID || 'common',
-  authorityHost: (process.env.MS_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, ''),
+  clientId: process.env.OUTLOOK_CLIENT_ID || '',
+  clientSecret: process.env.OUTLOOK_CLIENT_SECRET || '',
+  tenantId: process.env.OUTLOOK_TENANT_ID || 'common',
+  authorityHost: (process.env.OUTLOOK_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, ''),
   redirectUri: 'http://localhost:3333/auth/callback',
   scopes: [
     'offline_access',
@@ -165,8 +165,8 @@ const server = http.createServer((req, res) => {
             <div class="error-box">
               <p>Microsoft Graph API credentials are not set. Please set the following environment variables:</p>
               <ul>
-                <li><code>MS_CLIENT_ID</code></li>
-                <li><code>MS_CLIENT_SECRET</code></li>
+                <li><code>OUTLOOK_CLIENT_ID</code></li>
+                <li><code>OUTLOOK_CLIENT_SECRET</code></li>
               </ul>
             </div>
           </body>
@@ -214,7 +214,7 @@ const server = http.createServer((req, res) => {
           <div class="info-box">
             <p>This server is running to handle Microsoft Graph API authentication callbacks.</p>
             <p>Don't navigate here directly. Instead, use the <code>authenticate</code> tool in Claude to start the authentication process.</p>
-            <p>Make sure you've set the <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code> environment variables.</p>
+            <p>Make sure you've set the <code>OUTLOOK_CLIENT_ID</code> and <code>OUTLOOK_CLIENT_SECRET</code> environment variables.</p>
           </div>
           <p>Server is running at http://localhost:3333</p>
         </body>
@@ -298,7 +298,7 @@ server.listen(PORT, () => {
   
   if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
     console.log('\n⚠️  WARNING: Microsoft Graph API credentials are not set.');
-    console.log('   Please set the MS_CLIENT_ID and MS_CLIENT_SECRET environment variables.');
+    console.log('   Please set the OUTLOOK_CLIENT_ID and OUTLOOK_CLIENT_SECRET environment variables.');
   }
 });
 
