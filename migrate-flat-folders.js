@@ -88,6 +88,24 @@ async function moveAllEmails(token, sourceFolderId, destFolderId, folderName) {
 }
 
 async function deleteFolder(token, folderId, name) {
+  // Safety check: never delete a folder that has child folders
+  try {
+    const info = await callGraphAPI(token, 'GET', `me/mailFolders/${folderId}`, null, {
+      $select: 'id,displayName,totalItemCount,childFolderCount'
+    });
+    if (info.childFolderCount > 0) {
+      console.log(`  SKIPPED delete of "${name}" — has ${info.childFolderCount} child folder(s)`);
+      return;
+    }
+    if (info.totalItemCount > 0) {
+      console.log(`  SKIPPED delete of "${name}" — still has ${info.totalItemCount} item(s)`);
+      return;
+    }
+  } catch (err) {
+    console.error(`  Could not verify folder "${name}" before delete — skipping for safety: ${err.message}`);
+    return;
+  }
+
   try {
     await callGraphAPI(token, 'DELETE', `me/mailFolders/${folderId}`);
     console.log(`  Deleted empty folder: ${name}`);
